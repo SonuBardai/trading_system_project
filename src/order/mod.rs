@@ -1,16 +1,16 @@
-use std::{fmt::Debug, sync::Mutex};
+use std::fmt::Debug;
 
-use crate::db::{Stock, User};
+use crate::db::Stock;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TransactionType {
     Bid,
     Ask,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub struct Order {
     pub stock_id: u32,
     pub user_id: u32,
@@ -40,24 +40,30 @@ impl Order {
 #[derive(Debug)]
 pub struct Orderbook {
     pub stock: Stock,
-    pub bids: Mutex<Vec<Order>>,
-    pub asks: Mutex<Vec<Order>>,
+    pub bids: Vec<Order>,
+    pub asks: Vec<Order>,
 }
 
 impl Orderbook {
     pub fn new(stock: Stock) -> Self {
         Orderbook {
             stock,
-            bids: Mutex::new(vec![]),
-            asks: Mutex::new(vec![]),
+            bids: vec![],
+            asks: vec![],
         }
     }
 
-    pub fn bid(&mut self, order: Order) {
-        self.bids.lock().unwrap().push(order);
+    pub fn ask(&mut self, order: Order) {
+        let asks = &mut self.asks;
+        match asks.binary_search_by(|a| a.price.cmp(&order.price).reverse()) {
+            Ok(index) | Err(index) => asks.insert(index, order),
+        };
     }
 
-    pub fn ask(&mut self, order: Order) {
-        self.asks.lock().unwrap().push(order);
+    pub fn bid(&mut self, order: Order) {
+        let bids = &mut self.bids;
+        match bids.binary_search_by(|a| a.price.cmp(&order.price).reverse()) {
+            Ok(index) | Err(index) => bids.insert(index, order),
+        };
     }
 }

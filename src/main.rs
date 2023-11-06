@@ -20,40 +20,45 @@ lazy_static! {
 impl fmt::Debug for GLOBAL_ORDERBOOK {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let orderbook = self.lock().unwrap();
-        let bids = orderbook.bids.lock().unwrap();
-        let asks = orderbook.asks.lock().unwrap();
+        let bids = &orderbook.bids;
+        let asks = &orderbook.asks;
         f.debug_struct("Orderbook")
             .field("stock", &orderbook.stock)
-            .field("bids", &*bids)
-            .field("asks", &*asks)
+            .field("bids", &bids)
+            .field("asks", &asks)
             .finish()
     }
 }
 
-async fn order(order_req: web::Json<OrderRequest>) -> impl Responder {
-    match order_req.transaction_type {
-        TransactionType::Ask => {
-            let order = Order::new(
-                order_req.stock_id,
-                order_req.user_id,
-                order_req.price,
-                order_req.qty,
-                TransactionType::Ask,
-            );
-            GLOBAL_ORDERBOOK.lock().unwrap().ask(order);
-            HttpResponse::Ok().body(format!("Ask order placed"))
+async fn order(req: HttpRequest, order_req: web::Json<OrderRequest>) -> impl Responder {
+    if check_user_auth(req, order_req.user_id) {
+        let mut orderbook = GLOBAL_ORDERBOOK.lock().unwrap();
+        match order_req.transaction_type {
+            TransactionType::Ask => {
+                let order = Order::new(
+                    order_req.stock_id,
+                    order_req.user_id,
+                    order_req.price,
+                    order_req.qty,
+                    TransactionType::Ask,
+                );
+                orderbook.ask(order);
+                HttpResponse::Ok().body(format!("Ask order placed"))
+            }
+            TransactionType::Bid => {
+                let order = Order::new(
+                    order_req.stock_id,
+                    order_req.user_id,
+                    order_req.price,
+                    order_req.qty,
+                    TransactionType::Bid,
+                );
+                orderbook.bid(order);
+                HttpResponse::Ok().body(format!("Bid order placed"))
+            }
         }
-        TransactionType::Bid => {
-            let order = Order::new(
-                order_req.stock_id,
-                order_req.user_id,
-                order_req.price,
-                order_req.qty,
-                TransactionType::Bid,
-            );
-            GLOBAL_ORDERBOOK.lock().unwrap().bid(order);
-            HttpResponse::Ok().body(format!("Bid order placed"))
-        }
+    } else {
+        HttpResponse::Unauthorized().body("You can't place this order")
     }
 }
 

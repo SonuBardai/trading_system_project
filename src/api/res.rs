@@ -25,8 +25,8 @@ impl BalanceResponse {
 #[derive(Serialize, Debug)]
 pub struct OrderbookResponse {
     stock: String,
-    bids: Vec<Order>,
     asks: Vec<Order>,
+    bids: Vec<Order>,
 }
 
 impl OrderbookResponse {
@@ -34,8 +34,8 @@ impl OrderbookResponse {
         let stock = orderbook.stock.clone();
         return OrderbookResponse {
             stock: stock.ticker,
-            bids: orderbook.bids.lock().unwrap().clone(),
-            asks: orderbook.asks.lock().unwrap().clone(),
+            asks: orderbook.asks.clone(),
+            bids: orderbook.bids.clone(),
         };
     }
 }
