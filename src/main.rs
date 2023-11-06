@@ -4,15 +4,45 @@ pub mod order;
 
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use auth::check_user_auth;
-use db::User;
+use db::mock_db::db_users;
+use db::{mock_db::db_stocks, User};
+use lazy_static::lazy_static;
+use order::{Order, Orderbook};
+use std::fmt;
 use std::io::Result;
+use std::sync::{Arc, Mutex};
+
+lazy_static! {
+    static ref GLOBAL_ORDERBOOK: Arc<Mutex<Orderbook>> =
+        Arc::new(Mutex::new(Orderbook::new(db_stocks()[0].clone())));
+}
+
+impl fmt::Debug for GLOBAL_ORDERBOOK {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let orderbook = self.lock().unwrap();
+        let bids = orderbook.bids.lock().unwrap();
+        let asks = orderbook.asks.lock().unwrap();
+        f.debug_struct("Orderbook")
+            .field("stock", &orderbook.stock)
+            .field("bids", &*bids)
+            .field("asks", &*asks)
+            .finish()
+    }
+}
 
 async fn order() -> impl Responder {
-    HttpResponse::Ok().body("hello world")
+    let order = Order::new(
+        db_stocks()[0].clone(),
+        db_users()[0].clone(),
+        order::TransactionType::Ask,
+    );
+    GLOBAL_ORDERBOOK.lock().unwrap().bid(order);
+    HttpResponse::Ok().body(format!("Ask order placed"))
 }
 
 async fn depth() -> impl Responder {
-    HttpResponse::Ok().body("hello world")
+    let orderbook = GLOBAL_ORDERBOOK.lock().unwrap();
+    HttpResponse::Ok().body(format!("{:?}", orderbook))
 }
 
 async fn balance(req: HttpRequest, data: web::Path<(u32,)>) -> impl Responder {

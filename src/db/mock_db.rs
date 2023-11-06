@@ -7,7 +7,7 @@ use super::Stock;
 pub fn db_stocks() -> Vec<Stock> {
     vec![Stock {
         stock_id: 1,
-        ticker: String::from("GOOGL"),
+        ticker: "GOOGL".to_string(),
         price: 130,
         amount: 1,
     }]
