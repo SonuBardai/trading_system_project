@@ -1,6 +1,6 @@
 // Mock db
 
-use crate::User;
+use crate::db::User;
 
 use super::Stock;
 

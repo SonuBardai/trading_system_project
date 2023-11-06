@@ -1,7 +1,9 @@
 pub mod mock_db;
+use serde::Serialize;
+
 use crate::db::mock_db::db_users;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Stock {
     pub stock_id: u32,
     pub ticker: String,
@@ -9,7 +11,7 @@ pub struct Stock {
     pub amount: u32,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Serialize, Debug)]
 pub struct User {
     pub user_id: u32,
     pub balance: u64,

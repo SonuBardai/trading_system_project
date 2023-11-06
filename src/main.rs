@@ -1,19 +1,19 @@
-pub mod auth;
-pub mod db;
-pub mod order;
-
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Responder};
-use auth::check_user_auth;
-use db::mock_db::db_users;
-use db::{mock_db::db_stocks, User};
 use lazy_static::lazy_static;
-use order::{Order, Orderbook};
+use serde_json::to_string;
 use std::fmt;
 use std::io::Result;
 use std::sync::{Arc, Mutex};
+use trading_system::api::res::{BalanceResponse, OrderbookResponse};
+use trading_system::{
+    api::req::OrderRequest,
+    auth::check_user_auth,
+    db::{mock_db::db_stocks, User},
+    order::{Order, Orderbook, TransactionType},
+};
 
 lazy_static! {
-    static ref GLOBAL_ORDERBOOK: Arc<Mutex<Orderbook>> =
+    pub static ref GLOBAL_ORDERBOOK: Arc<Mutex<Orderbook>> =
         Arc::new(Mutex::new(Orderbook::new(db_stocks()[0].clone())));
 }
 
@@ -30,19 +30,39 @@ impl fmt::Debug for GLOBAL_ORDERBOOK {
     }
 }
 
-async fn order() -> impl Responder {
-    let order = Order::new(
-        db_stocks()[0].clone(),
-        db_users()[0].clone(),
-        order::TransactionType::Ask,
-    );
-    GLOBAL_ORDERBOOK.lock().unwrap().bid(order);
-    HttpResponse::Ok().body(format!("Ask order placed"))
+async fn order(order_req: web::Json<OrderRequest>) -> impl Responder {
+    match order_req.transaction_type {
+        TransactionType::Ask => {
+            let order = Order::new(
+                order_req.stock_id,
+                order_req.user_id,
+                order_req.price,
+                order_req.qty,
+                TransactionType::Ask,
+            );
+            GLOBAL_ORDERBOOK.lock().unwrap().ask(order);
+            HttpResponse::Ok().body(format!("Ask order placed"))
+        }
+        TransactionType::Bid => {
+            let order = Order::new(
+                order_req.stock_id,
+                order_req.user_id,
+                order_req.price,
+                order_req.qty,
+                TransactionType::Bid,
+            );
+            GLOBAL_ORDERBOOK.lock().unwrap().bid(order);
+            HttpResponse::Ok().body(format!("Bid order placed"))
+        }
+    }
 }
 
 async fn depth() -> impl Responder {
     let orderbook = GLOBAL_ORDERBOOK.lock().unwrap();
-    HttpResponse::Ok().body(format!("{:?}", orderbook))
+    HttpResponse::Ok().body(
+        serde_json::to_string(&OrderbookResponse::from_orderbook(&orderbook))
+            .expect("Failed to get orderbook data"),
+    )
 }
 
 async fn balance(req: HttpRequest, data: web::Path<(u32,)>) -> impl Responder {
@@ -50,10 +70,9 @@ async fn balance(req: HttpRequest, data: web::Path<(u32,)>) -> impl Responder {
     if check_user_auth(req, user_id) {
         let user = User::get_user(user_id);
         match user {
-            Some(user) => HttpResponse::Ok().body(format!(
-                "{{\"balance\": {}, \"stocks\": {:?}}}", // use serde to define response structs and serialize them
-                user.balance, user.stocks
-            )),
+            Some(user) => HttpResponse::Ok().body(
+                to_string(&BalanceResponse::from_user(user)).expect("Failed to get user balance"),
+            ),
             None => HttpResponse::NotFound().body("User not found"),
         }
     } else {

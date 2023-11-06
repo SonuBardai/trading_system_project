@@ -1,25 +1,37 @@
 use std::{fmt::Debug, sync::Mutex};
 
 use crate::db::{Stock, User};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum TransactionType {
     Bid,
     Ask,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Order {
-    pub stock: Stock,
-    pub user: User,
+    pub stock_id: u32,
+    pub user_id: u32,
+    pub price: u64,
+    pub qty: u32,
     pub transaction_type: TransactionType,
 }
 
 impl Order {
-    pub fn new(stock: Stock, user: User, transaction_type: TransactionType) -> Self {
+    pub fn new(
+        stock_id: u32,
+        user_id: u32,
+        price: u64,
+        qty: u32,
+        transaction_type: TransactionType,
+    ) -> Self {
         Order {
-            stock,
-            user,
+            stock_id,
+            user_id,
+            price,
+            qty,
             transaction_type,
         }
     }
