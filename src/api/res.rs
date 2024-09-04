@@ -39,3 +39,8 @@ impl OrderbookResponse {
         };
     }
 }
+
+#[derive(Serialize, Debug)]
+pub struct OrderResponse {
+    pub remaining_qty: u32,
+}
